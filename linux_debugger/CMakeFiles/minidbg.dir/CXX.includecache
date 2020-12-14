@@ -1,0 +1,38 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/deku/Coding/Cpp_C_projects/linux_debugger/src/minidbg.cpp
+unistd.h
+-
+sys/types.h
+-
+sys/ptrace.h
+-
+linenoise.h
+/home/deku/Coding/Cpp_C_projects/linux_debugger/src/linenoise.h
+sys/wait.h
+-
+vector
+-
+sstream
+-
+iostream
+-
+debugger.hpp
+/home/deku/Coding/Cpp_C_projects/linux_debugger/src/debugger.hpp
+
+ext/linenoise/linenoise.h
+
+include/debugger.hpp
+utility
+-
+string
+-
+linux/types.h
+-
+
