@@ -7,6 +7,8 @@
 #include <sstream>
 #include <iostream>
 #include "debugger.hpp"
+#include <sys/personality.h>
+#include "breakpoint.hpp"
 
 using namespace minidbg;
 
@@ -37,9 +39,13 @@ void debugger::handle_command(const std::string &line)
     auto args = split(line, ' '); // split input line
     auto command = args[0]; 
 
-    if(is_prefix(command, "continue")) // if input is "continue", contine execution
+    if(is_prefix(command, "cont")) // if input has a "cont" prefix, contine execution
     {
         continue_execution();
+    }
+    else if (is_prefix(command, "break")){
+        std::string addr {args[1], 2}; // naively assume that the user has written 0xADDRESS, so skip first two chars
+        set_breakpoint_at_address(std::stol(addr, 0, 16));
     }
     else{
         std::cerr << "Unknown command\n";
@@ -72,8 +78,22 @@ void debugger::run(){
 
 }
 
+void debugger::set_breakpoint_at_address(std::intptr_t addr){
+    std::cout << "Set breakpoint at address 0x" << std::hex << addr << std::endl;
+    breakpoint bp (m_pid, addr); // create a new breakpoint object
+    bp.enable(); // enable it
+    m_breakpoints[addr] = bp; // store the breakpoint-address pair in hashtable for lookup
+}
 
+void execute_debugge( const std::string &prog_name){
+    if (ptrace(PTRACE_TRACEME, 0, 0, 0) < 0){
+        std::cerr << "Error in ptrace\n";
+        return;
+    }
 
+    execl(prog_name.c_str(), prog_name.c_str(), nullptr);
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -90,9 +110,9 @@ int main(int argc, char *argv[])
     if(pid==0)
     {
         // We are in the child process, execute program to be debugged
+        personality(ADDR_NO_RANDOMIZE);
+        execute_debugge(prog);
 
-        ptrace(PTRACE_TRACEME, 0, nullptr, nullptr); // allow the parent process to trace this process
-        execl(prog, prog, nullptr); // execute the program to debug
     }
 
     else if (pid>=1) // pid = id of child

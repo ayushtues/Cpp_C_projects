@@ -25,8 +25,20 @@ iostream
 -
 debugger.hpp
 /home/deku/Coding/Cpp_C_projects/linux_debugger/src/debugger.hpp
+sys/personality.h
+-
+breakpoint.hpp
+/home/deku/Coding/Cpp_C_projects/linux_debugger/src/breakpoint.hpp
 
 ext/linenoise/linenoise.h
+
+include/breakpoint.hpp
+cstdint
+-
+sys/ptrace.h
+-
+unistd.h
+-
 
 include/debugger.hpp
 utility
@@ -35,4 +47,8 @@ string
 -
 linux/types.h
 -
+unordered_map
+-
+breakpoint.hpp
+include/breakpoint.hpp
 
