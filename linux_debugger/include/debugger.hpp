@@ -41,6 +41,14 @@ namespace minidbg {
         uint64_t offset_load_address(uint64_t addr);
         siginfo_t get_signal_info();
         void handle_sigtrap(siginfo_t info);
+        void single_step_instruction();
+        void single_step_instruction_with_breakpoint_check();
+        void step_out();
+        void remove_breakpoint(std::intptr_t addr);
+        void step_in();
+        uint64_t get_offset_pc();
+        uint64_t offset_dwarf_address(uint64_t addr);
+        void step_over();
         
         std::string m_prog_name;
         pid_t m_pid;
