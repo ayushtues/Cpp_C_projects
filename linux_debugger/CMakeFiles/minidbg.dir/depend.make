@@ -5,6 +5,11 @@ CMakeFiles/minidbg.dir/ext/linenoise/linenoise.c.o: ext/linenoise/linenoise.c
 CMakeFiles/minidbg.dir/ext/linenoise/linenoise.c.o: ext/linenoise/linenoise.h
 
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o: src/minidbg.cpp
+CMakeFiles/minidbg.dir/src/minidbg.cpp.o: ext/libelfin/dwarf/data.hh
+CMakeFiles/minidbg.dir/src/minidbg.cpp.o: ext/libelfin/dwarf/dwarf++.hh
+CMakeFiles/minidbg.dir/src/minidbg.cpp.o: ext/libelfin/dwarf/small_vector.hh
+CMakeFiles/minidbg.dir/src/minidbg.cpp.o: ext/libelfin/elf/common.hh
+CMakeFiles/minidbg.dir/src/minidbg.cpp.o: ext/libelfin/elf/elf++.hh
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o: ext/linenoise/linenoise.h
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o: include/breakpoint.hpp
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o: include/debugger.hpp

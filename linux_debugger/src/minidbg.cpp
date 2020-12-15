@@ -3,14 +3,19 @@
 #include <sys/ptrace.h>
 #include "linenoise.h"
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <vector>
 #include <sstream>
+#include <fstream>
 #include <iostream>
 #include "debugger.hpp"
 #include <sys/personality.h>
 #include "breakpoint.hpp"
 #include "registers.hpp"
 #include <iomanip>
+#include <fcntl.h>
+#include <map>
 
 using namespace minidbg;
 
@@ -91,6 +96,7 @@ void debugger::continue_execution(){
 void debugger::run(){
 
     int wait_status;
+    initialise_load_address();
     auto options = 0;
     waitpid(m_pid, &wait_status, options); // wait for the child process to launch and send a SIGTRAP signal
 
@@ -138,16 +144,10 @@ void debugger::set_pc(uint64_t pc){
 
 void debugger::step_over_breakpoint(){
 
-    // -1 because execution will go past the breakpoint
-    auto possible_breakpoint_location = get_pc() - 1;
+    if (m_breakpoints.count(get_pc())){
+        auto &bp = m_breakpoints[get_pc()]; // check if there is a breakpoint at the value of the current PC
 
-    if (m_breakpoints.count(possible_breakpoint_location)){
-        auto &bp = m_breakpoints[possible_breakpoint_location]; // check if there is a breakpoint at the value of the current PC
-    
         if(bp.is_enabled()){
-            auto previous_instruction_address = possible_breakpoint_location;
-            set_pc(previous_instruction_address); // set PC back to the breakpoint
-
             bp.disable(); // disable the breakpoint
             ptrace(PTRACE_SINGLESTEP, m_pid, nullptr, nullptr); // execute the original instruction
             wait_for_signal();
@@ -161,6 +161,77 @@ void debugger::wait_for_signal(){
     int wait_status;
     auto options = 0;
     waitpid(m_pid, &wait_status, options);
+
+    auto siginfo = get_signal_info();
+
+    switch (siginfo.si_signo){
+    case SIGTRAP:
+        handle_sigtrap(siginfo);
+        break;
+    case SIGSEGV:
+        std::cout << "Yay, segfault. Reason: " << siginfo.si_code << std::endl;
+        break;    
+    default:
+        std::cout<<"Got signal " << strsignal(siginfo.si_signo) << std::endl;
+    }
+
+}
+
+dwarf::die debugger::get_function_from_pc(uint64_t pc){
+    for (auto &cu : m_dwarf.compilation_units()){ // loop through compilation units
+        if (die_pc_range(cu.root()).contains(pc)){ // if pc is found in the range
+            for (const auto& die : cu.root()){
+                if ( die.tag == dwarf :: DW_TAG::subprogram){ //loop across subprograms/functions
+                    if(die_pc_range(die).contains(pc)) // if pc is found
+                    {
+                        return die; 
+                    }
+                }
+            }
+        }
+    }
+
+    throw std::out_of_range{"Cannot find function"};
+}
+
+dwarf::line_table::iterator debugger::get_line_entry_from_pc(uint64_t pc){
+
+    for (auto &cu : m_dwarf.compilation_units()){ // loop over compilation units
+        if( die_pc_range(cu.root()).contains(pc)){ // if it contains PC
+            
+            auto &lt = cu.get_line_table(); // get line table
+            auto it = lt.find_address(pc); // find the pc in the line table
+            
+            if( it == lt.end()){
+                throw std::out_of_range{"Cannot find line entry"};
+            }
+            
+            else{
+                return it;
+            }
+        }
+    }
+}
+
+// get the initial load address and store it in a variable
+void debugger::initialise_load_address(){
+
+    // if this is a dynamic library ( e.g. PIE)
+    if (m_elf.get_hdr().type == elf::et::dyn){
+
+        std::ifstream map("/proc/" + std::to_string(m_pid) + "/maps"); 
+
+        // Read the first address from the file
+        std::string addr;
+        std::getline(map, addr, '-');
+
+        m_load_address = std::stoi(addr, 0, 16); 
+    }
+}
+
+// caculate the offset of the current address
+uint64_t debugger::offset_load_address(uint64_t addr){
+    return addr - m_load_address;
 }
 
 void execute_debugge( const std::string &prog_name){
@@ -171,6 +242,75 @@ void execute_debugge( const std::string &prog_name){
 
     execl(prog_name.c_str(), prog_name.c_str(), nullptr);
 
+}
+
+// print the source code around the requested line ( the one we are inspecting via a breakpoint )
+void debugger::print_source( const std::string& file_name, unsigned line, unsigned n_lines_context){
+
+    std::ifstream file{file_name};
+
+    // get a context window of neigbouring lines around the desired line
+    auto start_line = line <= n_lines_context ? 1 : line - n_lines_context;
+    auto end_line = line + n_lines_context + ( line < n_lines_context ? n_lines_context - line : 0 ) + 1;
+
+    char c{};
+    auto current_line = 1u;
+
+    // Skip lines up until start_line
+    while(current_line != start_line && file.get(c)){
+        if ( c == '\n'){
+            ++current_line;
+        }
+    }
+
+    // Output cursor if we're at the current line
+    std::cout << (current_line == line ? "> " : " ");
+
+    // Write lines up until end_line
+    while (current_line <= end_line && file.get(c)) {
+        std::cout << c;
+        if(c == '\n'){
+            ++current_line;
+            // Output cursor if we're at the current line
+            std::cout << (current_line==line ? "> " : " ");
+        }
+    }
+
+    // Write newline and make sure that the stream is flushed properly
+    std::cout << std::endl;
+}
+
+siginfo_t debugger::get_signal_info(){
+    siginfo_t info;
+    ptrace(PTRACE_GETSIGINFO, m_pid, nullptr, &info); // gets info about the last signal
+}
+
+void debugger::handle_sigtrap(siginfo_t info){
+    switch (info.si_code){
+
+        // one of these will be set if a breakpoint was hit
+        case SI_KERNEL:
+        case TRAP_BRKPT:
+        {
+            set_pc(get_pc() -1); // put the pc back to where it should be   
+            std::cout << "Hit breakpoint at address 0x"<< std::hex << get_pc() << std::endl;
+
+            auto offset_pc = offset_load_address(get_pc()); // remember to offset the pc for querying DWARF
+            auto line_entry = get_line_entry_from_pc(offset_pc);
+            
+            print_source(line_entry->file->path, line_entry->line); // print the source code around the breakpoint
+            return;
+        }   
+        
+        // this will be set if the signal was sent by single stepping
+        case TRAP_TRACE:
+            return;
+        
+        default:
+            std::cout<< "Unkown SIGTRAP code " << info.si_code << std::endl;
+            return;
+
+    }
 }
 
 int main(int argc, char *argv[])

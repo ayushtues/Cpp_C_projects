@@ -6,6 +6,11 @@ CMakeFiles/minidbg.dir/ext/linenoise/linenoise.c.o
  /home/deku/Coding/Cpp_C_projects/linux_debugger/ext/linenoise/linenoise.h
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o
  /home/deku/Coding/Cpp_C_projects/linux_debugger/src/minidbg.cpp
+ ext/libelfin/dwarf/data.hh
+ ext/libelfin/dwarf/dwarf++.hh
+ ext/libelfin/dwarf/small_vector.hh
+ ext/libelfin/elf/common.hh
+ ext/libelfin/elf/elf++.hh
  ext/linenoise/linenoise.h
  include/breakpoint.hpp
  include/debugger.hpp
