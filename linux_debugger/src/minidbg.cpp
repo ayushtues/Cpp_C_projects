@@ -19,6 +19,25 @@
 
 using namespace minidbg;
 
+
+bool is_suffix(const std::string& s, const std::string& of) {
+    if (s.size() > of.size()) return false;
+    auto diff = of.size() - s.size();
+    return std::equal(s.begin(), s.end(), of.begin() + diff);
+}
+
+symbol_type to_symbol_type(elf::stt sym) {
+    switch (sym) {
+    case elf::stt::notype: return symbol_type::notype;
+    case elf::stt::object: return symbol_type::object;
+    case elf::stt::func: return symbol_type::func;
+    case elf::stt::section: return symbol_type::section;
+    case elf::stt::file: return symbol_type::file;
+    default: return symbol_type::notype;
+    }
+};
+
+
 std::vector<std::string> split(const std::string &s, char delimiter)
 {
     std::vector<std::string> out{};
@@ -51,8 +70,19 @@ void debugger::handle_command(const std::string &line)
         continue_execution();
     }
     else if (is_prefix(command, "break")){
-        std::string addr {args[1], 2}; // naively assume that the user has written 0xADDRESS, so skip first two chars
-        set_breakpoint_at_address(std::stol(addr, 0, 16));
+        if ( args[1][0] == '0' && args[1][1] == 'x'){ // if input is 0x<hexa> -> Address breakpoint
+            std::string addr {args[1], 2};
+            set_breakpoint_at_address(std::stol(addr, 0, 16));
+        }
+        else if (args[1].find(':') != std::string::npos ){ // <line> : <filename> -> line number breakpoint
+            auto file_and_line = split(args[1], ':');
+            set_breakpoint_at_source_line(file_and_line[0], std::stoi(file_and_line[1]));
+        }
+        else
+        {
+            set_breakpoint_at_function(args[1]); // <anything else> -> function name breakpoint 
+        }
+        
     }
     else if (is_prefix(command, "register")){ // read/write to/from registersm or dump them
         if(is_prefix(args[1], "dump")){
@@ -64,6 +94,13 @@ void debugger::handle_command(const std::string &line)
         else if (is_prefix(args[1], "write")){
             std::string val {args[3], 2}; // assume 0xVAL
             set_register_value(m_pid, get_register_from_name(args[2]), std::stol(val, 0, 16));
+        }
+    }
+
+    else if(is_prefix(command, "symbol")){
+        auto syms = lookup_symbol(args[1]);
+        for(auto &&s : syms){
+            std::cout << s.name << ' ' << to_string(s.type) << " 0x" << std::hex << s.addr << std::endl;
         }
     }
 
@@ -446,6 +483,59 @@ void debugger::step_over(){
     }
 
 }
+
+void debugger::set_breakpoint_at_function(const std::string &name)
+{
+    for (const auto& cu : m_dwarf.compilation_units()){
+        for (const auto& die : cu.root()){
+            if(die.has(dwarf::DW_AT::name) && at_name(die) == name) // match input name against function name extracted using DWARF
+            {
+                auto low_pc = at_low_pc(die); // get the start address of the function
+                auto entry = get_line_entry_from_pc(low_pc);
+                ++entry; // entry will actually point at a "prologue" of the function, so we do ++ to get to the actual entry of the function
+                set_breakpoint_at_address(offset_dwarf_address(entry->address));
+            }
+        }
+    }
+}
+
+void debugger::set_breakpoint_at_source_line(const std::string &file, unsigned line)
+{
+    for(const auto &cu : m_dwarf.compilation_units()){
+        if ( is_suffix(file, at_name(cu.root())) ){
+            const auto& lt = cu.get_line_table();
+
+            for(const auto& entry : lt){
+                if ( entry.is_stmt && entry.line == line)
+                {
+                    set_breakpoint_at_address(offset_dwarf_address(entry.address));
+                    return;
+                }
+            }
+        }
+    }
+}
+
+std::vector<symbol> debugger::lookup_symbol(const std::string &name){
+    std::vector<symbol> syms;
+
+    for(auto &sec : m_elf.sections()){ // look for symtab in the elf sections   
+        if(sec.get_hdr().type != elf::sht::symtab && sec.get_hdr().type != elf::sht::dynsym){
+            continue;
+        }
+
+        for(auto sym : sec.as_symtab()){
+            if(sym.get_name() == name){
+                auto &d = sym.get_data();
+                // collect all the symbols you find
+                syms.push_back(symbol{to_symbol_type(d.type()), sym.get_name(), d.value});
+            }
+        }
+    }
+
+    return syms;
+}
+
 
 int main(int argc, char *argv[])
 {
