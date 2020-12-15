@@ -29,6 +29,10 @@ sys/personality.h
 -
 breakpoint.hpp
 /home/deku/Coding/Cpp_C_projects/linux_debugger/src/breakpoint.hpp
+registers.hpp
+/home/deku/Coding/Cpp_C_projects/linux_debugger/src/registers.hpp
+iomanip
+-
 
 ext/linenoise/linenoise.h
 
@@ -51,4 +55,16 @@ unordered_map
 -
 breakpoint.hpp
 include/breakpoint.hpp
+
+include/registers.hpp
+sys/user.h
+-
+algorithm
+-
+array
+-
+string
+-
+sys/ptrace.h
+-
 

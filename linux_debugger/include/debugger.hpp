@@ -19,6 +19,13 @@ namespace minidbg {
     private:
         void handle_command(const std::string& line);
         void continue_execution();        
+        void dump_registers();
+        uint64_t read_memory(uint64_t address);
+        void write_memory(uint64_t address, uint64_t value);
+        uint64_t get_pc();
+        void set_pc(uint64_t pc);
+        void step_over_breakpoint();
+        void wait_for_signal();
         
         std::string m_prog_name;
         pid_t m_pid;

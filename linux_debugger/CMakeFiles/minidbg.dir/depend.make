@@ -8,4 +8,5 @@ CMakeFiles/minidbg.dir/src/minidbg.cpp.o: src/minidbg.cpp
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o: ext/linenoise/linenoise.h
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o: include/breakpoint.hpp
 CMakeFiles/minidbg.dir/src/minidbg.cpp.o: include/debugger.hpp
+CMakeFiles/minidbg.dir/src/minidbg.cpp.o: include/registers.hpp
 
