@@ -536,6 +536,32 @@ std::vector<symbol> debugger::lookup_symbol(const std::string &name){
     return syms;
 }
 
+void debugger::print_backtrace(){
+
+    // lambda to print trace
+    auto output_frame = [frame_number = 0] ( auto && func) mutable{
+        std::cout << "frame #" << frame_number++ <<": 0x"<<dwarf::at_low_pc(func)<<' ' << dwarf::at_name(func) << std::endl;
+    };
+
+    // the first frame to print is the one which is currently being executed
+    auto current_func = get_function_from_pc(offset_load_address(get_pc())); // look it up using the current PC in DWARF
+    output_frame(current_func);
+
+    // get the frame pointer and return address for the current function
+    auto frame_pointer = get_register_value(m_pid, reg::rbp);
+    auto return_address = read_memory(frame_pointer+8);
+
+    // keep unwinding the stack until you hit main
+    while(dwarf::at_name(current_func) != "main"){
+        
+        // grab the frame pointer and return address for each frame and print it
+        current_func = get_function_from_pc(return_address);
+        output_frame(current_func);
+        frame_pointer = read_memory(frame_pointer);
+        return_address = read_memory(frame_pointer+8);
+    }
+
+}
 
 int main(int argc, char *argv[])
 {

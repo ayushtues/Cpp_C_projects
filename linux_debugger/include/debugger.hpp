@@ -80,6 +80,7 @@ namespace minidbg {
         void set_breakpoint_at_function(const std::string& name);
         void set_breakpoint_at_source_line(const std::string &file, unsigned line);
         std::vector<symbol> lookup_symbol(const std::string &name);
+        void print_backtrace();
         
         std::string m_prog_name;
         pid_t m_pid;
